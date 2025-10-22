@@ -6,15 +6,34 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { AuthIllustration } from '@/components/ui/auth-illustration'
+import OTPVerification from '@/components/auth/OTPVerification'
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     role: '',
+    phone: '',
+    address: '',
+    state: '',
+    country: '',
+    governmentId: '',
+    ngoName: '',
+    ngoFounder: '',
+    availableResources: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactAddress: '',
+    emergencyContactRelationship: '',
+    distanceWillingToTravel: '',
+    medications: '',
+    allergies: '',
+    conditions: '',
+    medicalAdditionalInfo: '',
     password: '',
     confirmPassword: ''
   })
@@ -22,6 +41,8 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showOTPVerification, setShowOTPVerification] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,6 +69,38 @@ export default function SignUp() {
       return
     }
 
+    // Role selection required
+    if (!formData.role) {
+      setError('Please select a role')
+      setLoading(false)
+      return
+    }
+
+    // Role-specific required fields
+    if (formData.role !== 'COMMUNITY_USER' && !formData.availableResources) {
+      setError('Available Resources is required for non-community roles')
+      setLoading(false)
+      return
+    }
+
+    if (formData.role === 'GOVERNMENT_AGENCY' && !formData.governmentId) {
+      setError('Government ID is required for Government Agency')
+      setLoading(false)
+      return
+    }
+
+    if (formData.role === 'NGO' && (!formData.ngoName || !formData.ngoFounder)) {
+      setError('NGO Name and NGO Founder are required for NGO')
+      setLoading(false)
+      return
+    }
+
+    if (formData.role === 'COMMUNITY_USER' && !formData.allergies) {
+      setError('Allergies is required for Community Users')
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -58,6 +111,23 @@ export default function SignUp() {
           name: formData.name,
           email: formData.email,
           role: formData.role,
+          phone: formData.phone,
+          address: formData.address,
+          state: formData.state,
+          country: formData.country,
+          governmentId: formData.governmentId || undefined,
+          ngoName: formData.ngoName || undefined,
+          ngoFounder: formData.ngoFounder || undefined,
+          availableResources: formData.availableResources,
+          emergencyContactName: formData.emergencyContactName,
+          emergencyContactPhone: formData.emergencyContactPhone,
+          emergencyContactAddress: formData.emergencyContactAddress,
+          emergencyContactRelationship: formData.emergencyContactRelationship,
+          distanceWillingToTravel: formData.distanceWillingToTravel ? Number(formData.distanceWillingToTravel) : null,
+          medications: formData.medications || undefined,
+          allergies: formData.allergies || undefined,
+          conditions: formData.conditions || undefined,
+          medicalAdditionalInfo: formData.medicalAdditionalInfo || undefined,
           password: formData.password,
         }),
       })
@@ -65,7 +135,12 @@ export default function SignUp() {
       const data = await response.json()
 
       if (response.ok) {
-        router.push('/auth/signin?message=Account created successfully. Please sign in.')
+        if (data.requiresVerification) {
+          setUserEmail(data.email)
+          setShowOTPVerification(true)
+        } else {
+          router.push('/auth/signin?message=Account created successfully. Please sign in.')
+        }
       } else {
         setError(data.error || 'Account creation failed')
       }
@@ -76,7 +151,7 @@ export default function SignUp() {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
@@ -90,12 +165,22 @@ export default function SignUp() {
     })
   }
 
+  const handleBackToSignup = () => {
+    setShowOTPVerification(false)
+    setUserEmail('')
+  }
+
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return <OTPVerification email={userEmail} onBack={handleBackToSignup} />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex">
       {/* Left side - Illustration */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 to-indigo-700 relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative z-10 flex flex-col justify-center items-center p-12 text-white">
+        <div className="relative z-10 flex flex-col justify-start items-center p-12 pt-16 text-white">
           <div className="mb-8">
             <AuthIllustration />
           </div>
@@ -116,9 +201,9 @@ export default function SignUp() {
       </div>
 
       {/* Right side - Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
-        <div className="mx-auto w-full max-w-sm lg:max-w-md">
-          <div className="text-center lg:text-left mb-8">
+      <div className="w-full lg:w-3/5 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-16 xl:px-20">
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="text-center lg:text-left mb-8 lg:pl-6">
             <div className="lg:hidden mb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
                 Community Disaster Response Alliance
@@ -132,7 +217,7 @@ export default function SignUp() {
             </p>
           </div>
 
-          <Card className="p-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+          <Card className="p-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
             <form className="space-y-6" onSubmit={handleSubmit}>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
@@ -140,47 +225,145 @@ export default function SignUp() {
                 </div>
               )}
 
-              <div>
-                <Label htmlFor="name" className="text-gray-700 font-medium">
-                  Full Name
-                </Label>
-                <div className="mt-2">
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Enter your full name"
-                  />
+              {/* Basic Info - two columns on desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name" className="text-gray-700 font-medium">
+                    Full Name <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="name"
+                      name="name"
+                      type="text"
+                      autoComplete="name"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="email" className="text-gray-700 font-medium">
+                    Email address <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="phone" className="text-gray-700 font-medium">
+                    Phone Number <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      autoComplete="tel"
+                      required
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="address" className="text-gray-700 font-medium">
+                    Address <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="address"
+                      name="address"
+                      type="text"
+                      autoComplete="street-address"
+                      required
+                      value={formData.address}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your address"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="email" className="text-gray-700 font-medium">
-                  Email address
-                </Label>
-                <div className="mt-2">
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                    placeholder="Enter your email"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="state" className="text-gray-700 font-medium">
+                    State/Province <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="state"
+                      name="state"
+                      type="text"
+                      required
+                      value={formData.state}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your state or province"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="country" className="text-gray-700 font-medium">
+                    Country <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="country"
+                      name="country"
+                      type="text"
+                      required
+                      value={formData.country}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your country"
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Distance willing to travel - part of user info */}
+              {(!formData.role || formData.role !== 'COMMUNITY_USER') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="distanceWillingToTravel" className="text-gray-700 font-medium">
+                      Distance Willing to Travel (miles)
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="distanceWillingToTravel"
+                        name="distanceWillingToTravel"
+                        type="number"
+                        min="0"
+                        value={formData.distanceWillingToTravel}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter distance in kilometers"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="role" className="text-gray-700 font-medium">
-                  Role
+                  Role <span className="text-red-500">*</span>
                 </Label>
                 <div className="mt-2">
                   <Select value={formData.role} onValueChange={(value) => handleSelectChange('role', value)}>
@@ -197,9 +380,242 @@ export default function SignUp() {
                 </div>
               </div>
 
+              {/* Government Agency: Government ID */}
+              {formData.role === 'GOVERNMENT_AGENCY' && (
+                <div>
+                  <Label htmlFor="governmentId" className="text-gray-700 font-medium">
+                    Government ID <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Input
+                      id="governmentId"
+                      name="governmentId"
+                      type="text"
+                      required
+                      value={formData.governmentId}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="Enter your government ID"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* NGO: NGO Name and Founder */}
+              {formData.role === 'NGO' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="ngoName" className="text-gray-700 font-medium">
+                      NGO Name <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="ngoName"
+                        name="ngoName"
+                        type="text"
+                        required
+                        value={formData.ngoName}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter NGO name"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="ngoFounder" className="text-gray-700 font-medium">
+                      NGO Founder <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="ngoFounder"
+                        name="ngoFounder"
+                        type="text"
+                        required
+                        value={formData.ngoFounder}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter NGO founder's name"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {formData.role && formData.role !== 'COMMUNITY_USER' && (
+                <div>
+                  <Label htmlFor="availableResources" className="text-gray-700 font-medium">
+                    Available Resources <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="mt-2">
+                    <Textarea
+                      id="availableResources"
+                      name="availableResources"
+                      required
+                      value={formData.availableResources}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                      placeholder="List resources you can provide (e.g., shelter, food, medical aid)"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Community User: Medical ID Section */}
+              {formData.role === 'COMMUNITY_USER' && (
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Medical ID</h3>
+                  <p className="text-gray-600 mb-4 text-sm">Provide medical details to assist responders. Only allergies is required.</p>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="allergies" className="text-gray-700 font-medium">
+                        Allergies <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="mt-2">
+                        <Textarea
+                          id="allergies"
+                          name="allergies"
+                          required
+                          value={formData.allergies}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="List allergies (e.g., penicillin, peanuts)"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="medications" className="text-gray-700 font-medium">
+                        Medications
+                      </Label>
+                      <div className="mt-2">
+                        <Textarea
+                          id="medications"
+                          name="medications"
+                          value={formData.medications}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="List current medications"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="conditions" className="text-gray-700 font-medium">
+                        Conditions
+                      </Label>
+                      <div className="mt-2">
+                        <Textarea
+                          id="conditions"
+                          name="conditions"
+                          value={formData.conditions}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="List medical conditions"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="medicalAdditionalInfo" className="text-gray-700 font-medium">
+                        Additional Information
+                      </Label>
+                      <div className="mt-2">
+                        <Textarea
+                          id="medicalAdditionalInfo"
+                          name="medicalAdditionalInfo"
+                          value={formData.medicalAdditionalInfo}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                          placeholder="Any other relevant medical information"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Emergency Contact - two columns */}
+              {formData.role !== 'GOVERNMENT_AGENCY' && formData.role !== 'NGO' && (
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Emergency Contact</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="emergencyContactName" className="text-gray-700 font-medium">
+                      Contact Name
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="emergencyContactName"
+                        name="emergencyContactName"
+                        type="text"
+                        value={formData.emergencyContactName}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter contact full name"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="emergencyContactPhone" className="text-gray-700 font-medium">
+                      Contact Phone Number
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="emergencyContactPhone"
+                        name="emergencyContactPhone"
+                        type="tel"
+                        value={formData.emergencyContactPhone}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter contact phone number"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="emergencyContactAddress" className="text-gray-700 font-medium">
+                      Contact Address
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="emergencyContactAddress"
+                        name="emergencyContactAddress"
+                        type="text"
+                        value={formData.emergencyContactAddress}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="Enter contact address"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="emergencyContactRelationship" className="text-gray-700 font-medium">
+                      Relationship to You
+                    </Label>
+                    <div className="mt-2">
+                      <Input
+                        id="emergencyContactRelationship"
+                        name="emergencyContactRelationship"
+                        type="text"
+                        value={formData.emergencyContactRelationship}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                        placeholder="e.g., Parent, Sibling, Friend"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              )}
+
+
               <div>
                 <Label htmlFor="password" className="text-gray-700 font-medium">
-                  Password
+                  Password <span className="text-red-500">*</span>
                 </Label>
                 <div className="mt-2 relative">
                   <Input
@@ -244,7 +660,7 @@ export default function SignUp() {
 
               <div>
                 <Label htmlFor="confirmPassword" className="text-gray-700 font-medium">
-                  Confirm Password
+                  Confirm Password <span className="text-red-500">*</span>
                 </Label>
                 <div className="mt-2 relative">
                   <Input
@@ -317,6 +733,7 @@ export default function SignUp() {
                 </Link>
               </div>
             </div>
+
           </Card>
 
           <div className="mt-8 text-center text-sm text-gray-500">
@@ -328,9 +745,9 @@ export default function SignUp() {
             <Link href="/privacy" className="text-blue-600 hover:text-blue-500 transition-colors">
               Privacy Policy
             </Link>
-          </div>
-        </div>
+              </div>
       </div>
+    </div>
     </div>
   )
 }
