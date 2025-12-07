@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { AvailableResourcesSelector } from "@/components/ui/available-resources-selector"
+import { AVAILABLE_RESOURCE_OPTIONS } from "@/constants/resource-options"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { X, Shield, User, AlertTriangle } from "lucide-react"
@@ -45,6 +47,7 @@ export function ResourceAllocationModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [resourceQuery, setResourceQuery] = useState("")
   
   const [formData, setFormData] = useState({
     allocatedToId: "",
@@ -84,6 +87,27 @@ export function ResourceAllocationModal({
       setError("Error loading users")
     }
   }
+
+  const parseResourceTokens = (raw: string | null | undefined): string[] => {
+    const val = (raw || "").trim()
+    if (!val) return []
+    let tokens: string[] = []
+    if (val.includes("|")) {
+      tokens = val.split("|")
+    } else if (AVAILABLE_RESOURCE_OPTIONS.includes(val)) {
+      tokens = [val]
+    } else {
+      tokens = val.split(",")
+    }
+    return tokens.map((x) => x.trim().toLowerCase()).filter(Boolean)
+  }
+
+  const filteredUsers = users.filter((u) => {
+    const q = resourceQuery.trim().toLowerCase()
+    if (!q) return true
+    const tokens = parseResourceTokens(u.availableResources)
+    return tokens.some((t) => t.includes(q))
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -195,6 +219,16 @@ export function ResourceAllocationModal({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <Label htmlFor="search-resources" className="text-gray-900 font-medium">Search by available resources</Label>
+              <Input
+                id="search-resources"
+                placeholder="e.g., ambulance, food, shelter"
+                value={resourceQuery}
+                onChange={(e) => setResourceQuery(e.target.value)}
+                className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div>
               <Label htmlFor="allocatedToId" className="text-gray-900 font-medium">Assign To *</Label>
               <Select
                 value={formData.allocatedToId}
@@ -204,7 +238,7 @@ export function ResourceAllocationModal({
                   <SelectValue placeholder="Select a user to assign resources" className="text-gray-500" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border border-gray-200 shadow-lg">
-                  {users.map((user) => (
+                  {filteredUsers.map((user) => (
                     <SelectItem key={user.id} value={user.id} className="text-gray-900 hover:bg-gray-100 focus:bg-gray-100">
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-2 text-gray-600" />
@@ -216,16 +250,35 @@ export function ResourceAllocationModal({
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="resourceType" className="text-gray-900 font-medium">Resources Needed *</Label>
-              <Textarea
-                id="resourceType"
-                placeholder="Describe resources needed (free text)"
-                value={formData.resourceType}
-                onChange={(e) => setFormData({ ...formData, resourceType: e.target.value })}
-                rows={3}
-                className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
-              />
+            <div className="space-y-2">
+              {(() => {
+                const selectedUser = users.find(u => u.id === formData.allocatedToId)
+                let userOptions: string[] = []
+                if (selectedUser) {
+                  const raw = (selectedUser.availableResources || "").trim()
+                  if (raw.includes("|")) {
+                    userOptions = raw.split("|").map((x) => x.trim()).filter(Boolean)
+                  } else {
+                    // If matches a single known option, treat as one; else comma-split
+                    if (AVAILABLE_RESOURCE_OPTIONS.includes(raw)) {
+                      userOptions = [raw]
+                    } else {
+                      userOptions = raw.split(",").map((x) => x.trim()).filter(Boolean)
+                    }
+                  }
+                }
+                return (
+                  <AvailableResourcesSelector
+                    value={formData.resourceType}
+                    onChange={(val) => setFormData({ ...formData, resourceType: val })}
+                    label="Resources to Allocate"
+                    required
+                    helperText={selectedUser ? "Select only from this user's available resources." : "Select a user to view available resources."}
+                    optionsOverride={userOptions}
+                    showOther={false}
+                  />
+                )
+              })()}
             </div>
 
             {formData.allocatedToId && (
@@ -236,11 +289,26 @@ export function ResourceAllocationModal({
                   if (!selected) return (
                     <p className="text-sm text-gray-500">No user selected.</p>
                   )
-                  const resources = selected.availableResources?.trim()
-                  return resources ? (
-                    <p className="text-sm text-gray-700 whitespace-pre-line">{resources}</p>
-                  ) : (
-                    <p className="text-sm text-gray-500">No available resources provided by this user.</p>
+                  const resourcesRaw = (selected.availableResources || "").trim()
+                  if (!resourcesRaw) {
+                    return <p className="text-sm text-gray-500">No available resources provided by this user.</p>
+                  }
+                  let items: string[] = []
+                  if (resourcesRaw.includes("|")) {
+                    items = resourcesRaw.split("|").map((x) => x.trim()).filter(Boolean)
+                  } else if (AVAILABLE_RESOURCE_OPTIONS.includes(resourcesRaw)) {
+                    items = [resourcesRaw]
+                  } else {
+                    items = resourcesRaw.split(",").map((x) => x.trim()).filter(Boolean)
+                  }
+                  return (
+                    <div className="flex flex-wrap gap-2">
+                      {items.map((item, idx) => (
+                        <span key={`${item}-${idx}`} className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 border border-blue-200">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
                   )
                 })()}
               </div>

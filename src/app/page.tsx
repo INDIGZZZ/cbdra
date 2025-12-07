@@ -1,8 +1,14 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { HeroIllustration } from "@/components/ui/hero-illustration"
-import { AlertTriangle, Users, Shield, Globe } from "lucide-react"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Image from "next/image";
+import { AlertTriangle, Users, Shield, Globe } from "lucide-react";
 
 export default function Home() {
   return (
@@ -64,10 +70,27 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right side - Illustration */}
+            {/* Right side - Hero Image */}
             <div className="flex justify-center lg:justify-end">
-              <div className="w-full max-w-md lg:max-w-lg">
-                <HeroIllustration />
+              <div className="w-full p-1 max-w-md lg:max-w-lg">
+                <Image
+                  src="/cross3.jpg"
+                  alt="Community disaster response hero"
+                  width={512}
+                  height={512}
+                  className="rounded-lg shadow-xl"
+                  priority
+                />
+              </div>
+               <div className="p-1 w-full max-w-md lg:max-w-lg">
+                <Image
+                  src="/fema.jpeg"
+                  alt="Community disaster response hero"
+                  width={512}
+                  height={512}
+                  className="rounded-lg shadow-xl"
+                  priority
+                />
               </div>
             </div>
           </div>
